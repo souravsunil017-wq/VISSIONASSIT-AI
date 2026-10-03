@@ -1,0 +1,8 @@
+﻿*.pb
+*.pth
+*.pt
+*.onnx
+*.pkl
+*.HEIC
+*.heic
+.gitattributes
