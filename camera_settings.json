@@ -1,4 +1,4 @@
 {
- "ip_camera_url": "",
-"webcam_index": 0
+  "ip_camera_url": "http://10.119.161.30:8080/video",
+  "webcam_index": 0
 }

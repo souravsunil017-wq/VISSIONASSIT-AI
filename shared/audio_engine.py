@@ -7,8 +7,13 @@ import threading
 import queue
 import time
 import sys
+import json
+import urllib.request
+import urllib.error
 
 class TextToSpeechEngine:
+    _global_muted: bool = False
+
     def __init__(self, rate: int = 1, volume: int = 100):
         # SAPI Rate: -10 to 10 (1 is clear standard speed), Volume: 0 to 100
         self.rate = rate
@@ -19,9 +24,25 @@ class TextToSpeechEngine:
         self._is_speaking = False
         self._last_spoken_text = ""
         self._last_spoken_time = 0.0
+        self._active_phone_base = None
 
         self._worker_thread = threading.Thread(target=self._run_worker, daemon=True)
         self._worker_thread.start()
+
+    @classmethod
+    def set_global_muted(cls, muted: bool):
+        cls._global_muted = muted
+        print(f"[AudioEngine] PC Speaker Audio Muted: {muted}")
+
+    @classmethod
+    def toggle_global_muted(cls) -> bool:
+        cls._global_muted = not cls._global_muted
+        print(f"[AudioEngine] PC Speaker Audio Muted: {cls._global_muted}")
+        return cls._global_muted
+
+    @classmethod
+    def is_global_muted(cls) -> bool:
+        return cls._global_muted
 
     def _run_worker(self):
         sapi_voice = None
@@ -56,12 +77,17 @@ class TextToSpeechEngine:
             except queue.Empty:
                 continue
 
-            if self._is_muted:
+            if self._is_muted or TextToSpeechEngine._global_muted:
+                # Laptop speakers are muted, but ALWAYS dispatch to mobile phone so user hears audio on phone
+                threading.Thread(target=self._send_to_phone, args=(text,), daemon=True).start()
                 self._speech_queue.task_done()
                 continue
 
             self._is_speaking = True
             try:
+                # Dispatches speech concurrently to mobile phone so phone speaks immediately
+                threading.Thread(target=self._send_to_phone, args=(text,), daemon=True).start()
+
                 if sapi_voice is not None:
                     # SVSFDefault = 0 (speaks full sentence cleanly in worker thread)
                     sapi_voice.Speak(text, 0)
@@ -75,6 +101,51 @@ class TextToSpeechEngine:
             finally:
                 self._is_speaking = False
                 self._speech_queue.task_done()
+
+    def _send_to_phone(self, text: str):
+        """Asynchronously dispatches speech text to the Assist AI mobile app via HTTP POST /speak."""
+        if not text:
+            return
+
+        candidate_bases = [
+            "http://10.36.171.167:8080",
+            "http://localhost:8080",
+            "http://127.0.0.1:8080",
+            "http://10.231.110.219:8080",
+        ]
+
+        if self._active_phone_base and self._active_phone_base in candidate_bases:
+            candidate_bases.remove(self._active_phone_base)
+            candidate_bases.insert(0, self._active_phone_base)
+        else:
+            try:
+                from shared.camera_stream import load_camera_config
+                cfg = load_camera_config()
+                saved_url = cfg.get("ip_camera_url", "")
+                if saved_url:
+                    base = saved_url.split("/video")[0].rstrip("/")
+                    if base not in candidate_bases:
+                        candidate_bases.insert(0, base)
+            except Exception:
+                pass
+
+        payload = json.dumps({"text": text, "timestamp": time.time()}).encode("utf-8")
+        for base in candidate_bases:
+            try:
+                url = f"{base}/speak"
+                req = urllib.request.Request(
+                    url,
+                    data=payload,
+                    headers={"Content-Type": "application/json", "User-Agent": "AIAssistiveAudio"},
+                    method="POST"
+                )
+                with urllib.request.urlopen(req, timeout=0.8) as resp:
+                    if resp.status == 200:
+                        self._active_phone_base = base
+                        return True
+            except Exception:
+                pass
+        return False
 
     def is_busy(self) -> bool:
         """Returns True if the engine is currently speaking or has queued speech."""

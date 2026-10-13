@@ -1,8 +1,36 @@
-﻿*.pb
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Large Binary Model Weights & Pickles
+*.pb
 *.pth
 *.pt
 *.onnx
 *.pkl
+*.tar.gz
+
+# Media / LFS pointers
 *.HEIC
 *.heic
 .gitattributes
+
+# Raw Heavy Training Datasets (~1.85 GB)
+05_currency_recognition/currency_dataset/
+currency_notes/
+05_currency_recognition/currency_notes/
+
+# Temp Test Audio
+test_mic_sample.wav
+
+# Local Virtual Environments
+.venv/
+env/
+venv/
+ENV/
+
+# IDE / Editor Files
+.vscode/
+.idea/
+*.swp

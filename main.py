@@ -103,6 +103,32 @@ class MasterAssistiveHub:
             self.switch_requested = "EXIT"
             self.stop_feature_event.set()
 
+        elif intent == "mute_pc_audio":
+            TextToSpeechEngine.set_global_muted(True)
+            self.tts.speak("PC audio muted. Spoken guidance will play on phone only.", force=True)
+
+        elif intent == "unmute_pc_audio":
+            TextToSpeechEngine.set_global_muted(False)
+            self.tts.speak("PC audio unmuted. Laptop speakers active.", force=True)
+
+        elif intent == "mute_pc_mic":
+            VoiceCommandListener.set_global_mic_muted(True)
+            self.tts.speak("PC microphone muted. Phone voice control remains active.", force=True)
+
+        elif intent == "unmute_pc_mic":
+            VoiceCommandListener.set_global_mic_muted(False)
+            self.tts.speak("PC microphone unmuted.", force=True)
+
+        elif intent in ["unmute_all", "unmute_both", "cancel_mute"]:
+            TextToSpeechEngine.set_global_muted(False)
+            VoiceCommandListener.set_global_mic_muted(False)
+            self.tts.speak("PC audio and microphone unmuted. Both active.", force=True)
+
+        elif intent in ["mute_all", "mute_both"]:
+            TextToSpeechEngine.set_global_muted(True)
+            VoiceCommandListener.set_global_mic_muted(True)
+            self.tts.speak("PC audio and microphone muted.", force=True)
+
     def run(self):
         print("=" * 65)
         print("  AI ASSISTIVE VISION SYSTEM - MASTER VOICE COMMAND HUB")
